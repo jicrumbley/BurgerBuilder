@@ -13,8 +13,11 @@ class Layout extends Component {
         this.setState({showSideDrawer:false});
     }
 
+    //written to technically toggle the side drawer, but since the button will not be visible when open, it becomes an open only function
     openSideDrawerHandler = () => {
-        this.setState({showSideDrawer:true});
+        this.setState((prevState) => {
+            return {showSideDrawer: !prevState.showSideDrawer} 
+        });
     }
 
     render() {
