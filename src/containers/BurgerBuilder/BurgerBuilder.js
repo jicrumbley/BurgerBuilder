@@ -3,6 +3,9 @@ import Burger from '../../components/Burger/Burger';
 import BuildControls from '../../components/Burger/BuildControls/BuildControls';
 import Modal from '../../components/UI/Modal/Modal';
 import OrderSummary from '../../components/Burger/OrderSummary/OrderSummary';
+import axios from '../../axios-orders';
+import Spinner from '../../components/UI/Spinner/Spinner';
+import withErrorHandler from '../../hoc/withErrorHandler/withErrorHandler';
 
 const INGREDIENT_PRICES = {
     salad: .3,
@@ -13,14 +16,20 @@ const INGREDIENT_PRICES = {
 
 class BurgerBuilder extends Component {
     state = {
-        ingredients: {
-            bacon:0,
-            salad:0,
-            cheese:0,
-            meat:1
-        },
+        ingredients: null,
         totalPrice: 2.5,
-        purchasing: false
+        purchasing: false,
+        loading: false,
+        error:false
+    }
+
+    componentDidMount = () => {
+        axios.get('https://react-burger-backend-1.firebaseio.com/ingredients.json')
+        .then(res => {
+            this.setState({ingredients: res.data});
+        }).catch(error => {
+            this.setState({error:true})
+        });
     }
 
     addIngredientHandler = (type) => {
@@ -65,7 +74,31 @@ class BurgerBuilder extends Component {
     }
 
     checkoutHandler = () => {
-        console.log("checkout clicked")
+        //console.log("checkout clicked")
+        this.setState({loading:true});
+        const order = {
+            ingredients: this.state.ingredients,
+            price: this.state.totalPrice,
+            customer:{
+                name: 'Bill',
+                address: {
+                    street: '123 Road Way',
+                    city: 'Kennesaw',
+                    zip: '30060',
+                    country: 'US'
+                },
+                email: 'test@test.com',
+            },
+            deliverySpeed: 'fastest'
+        }
+
+        axios.post('/orders.json', order).then(response => {
+            console.log(response);
+            this.setState({loading:false, purchasing:false});
+        }).catch(error => {
+            console.log(error);
+            this.setState({loading:false, purchasing:false});
+        })
     }
 
     render() {
@@ -83,16 +116,33 @@ class BurgerBuilder extends Component {
             }
         }
 
+        let orderSum = null;
+        let burger = this.state.error ? <p>Unable to load ingredients from server</p> : <Spinner />
+        if(this.state.ingredients)
+        {
+            burger = 
+            <>    
+                <Burger ingredients={this.state.ingredients} />
+                <BuildControls price={this.state.totalPrice} added={this.addIngredientHandler} removed={this.removeIngredientHandler} disabled={disabledBtns} placeOrder={this.purchaseHandler} />
+            </>;
+            orderSum = <OrderSummary cancelClick={this.cancelPurchaseHandler} contClick={this.checkoutHandler} ingredients={this.state.ingredients} price={this.state.totalPrice} />;
+
+        }
+
+        if(this.state.loading)
+        {
+            orderSum = <Spinner />
+        }
+
         return (
             <>
                 <Modal show={this.state.purchasing} clickedBackdrop={this.cancelPurchaseHandler}>
-                    <OrderSummary cancelClick={this.cancelPurchaseHandler} contClick={this.checkoutHandler} ingredients={this.state.ingredients} price={this.state.totalPrice} />
+                    {orderSum}
                 </Modal>
-                <Burger ingredients={this.state.ingredients} />
-                <BuildControls price={this.state.totalPrice} added={this.addIngredientHandler} removed={this.removeIngredientHandler} disabled={disabledBtns} placeOrder={this.purchaseHandler} />
+                {burger}
             </>
         );
     }
 }
 
-export default BurgerBuilder;
+export default withErrorHandler(BurgerBuilder, axios);
